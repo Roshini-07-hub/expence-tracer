@@ -1,7 +1,6 @@
 import axios from 'axios';
 
-const BACKEND_URL = process.env.REACT_APP_API_URL?.replace(/\/$/, '') || '';
-const API_BASE = BACKEND_URL ? `${BACKEND_URL}/api/expenses` : '/api/expenses';
+const API_BASE = '/api/expenses';
 
 /**
  * Upload an image and process it with OCR
