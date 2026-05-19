@@ -63,3 +63,4 @@ The app opens at **http://localhost:3000**
 - Delete expenses
 - SQLite database for persistence
 - Receipt image thumbnails
+# expense_tracer
