@@ -3,13 +3,25 @@ const fs = require('fs');
 const path = require('path');
 const { traceable } = require('langsmith/traceable');
 const { wrapSDK } = require('langsmith/wrappers');
+const { Client } = require('langsmith');
+
+// LangSmith client with explicit config
+const langsmithClient = new Client({
+  apiKey: process.env.LANGCHAIN_API_KEY,
+  apiUrl: process.env.LANGCHAIN_ENDPOINT || 'https://api.smith.langchain.com',
+});
 
 // Wrap Groq client so every call is auto-traced by LangSmith
 const groqClient = new Groq({ apiKey: process.env.GROQ_API_KEY });
 const groq = wrapSDK(groqClient);
 
+const TRACE_CONFIG = {
+  client: langsmithClient,
+  project_name: process.env.LANGCHAIN_PROJECT || 'expence-tracer',
+};
+
 /**
- * Parse the Groq response into structured fields — traced separately
+ * Parse the Groq response into structured fields — traced as a tool
  */
 const parseOCRResponse = traceable(
   function parseOCRResponse(text) {
@@ -56,7 +68,7 @@ const parseOCRResponse = traceable(
 
     return result;
   },
-  { name: 'parse-ocr-response', run_type: 'tool' }
+  { name: 'parse-ocr-response', run_type: 'tool', ...TRACE_CONFIG }
 );
 
 /**
@@ -86,15 +98,14 @@ const callGroqVision = traceable(
 
     return response.choices[0]?.message?.content || '';
   },
-  { name: 'groq-vision-ocr', run_type: 'llm' }
+  { name: 'groq-vision-ocr', run_type: 'llm', ...TRACE_CONFIG }
 );
 
 /**
- * Main pipeline — top-level trace wrapping the full OCR flow
+ * Main pipeline — top-level trace for the full OCR flow
  */
 const extractExpenseFromImage = traceable(
   async function extractExpenseFromImage(imagePath) {
-    // Read image and encode
     const imageBuffer = fs.readFileSync(imagePath);
     const base64Image = imageBuffer.toString('base64');
 
@@ -134,10 +145,10 @@ Items:
 - [item 2]: [price]
 [continue for all items]`;
 
-    // Step 1: Call Groq Vision (traced as LLM)
+    // Step 1: Groq Vision LLM call (traced)
     const fullText = await callGroqVision({ base64Image, mimeType, prompt });
 
-    // Step 2: Parse structured fields (traced as tool)
+    // Step 2: Parse structured fields (traced)
     const parsed = await parseOCRResponse(fullText);
 
     return {
@@ -155,6 +166,7 @@ Items:
     name: 'expense-ocr-pipeline',
     run_type: 'chain',
     tags: ['expense-tracker', 'ocr', 'groq'],
+    ...TRACE_CONFIG,
   }
 );
 
