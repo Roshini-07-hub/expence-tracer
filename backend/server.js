@@ -36,7 +36,12 @@ app.get('/api/health', (req, res) => {
   res.json({ status: 'OK', message: 'Expense Tracker API is running', db: 'MongoDB Atlas' });
 });
 
-// Start server
-app.listen(PORT, () => {
-  console.log(`Server running on http://localhost:${PORT}`);
-});
+// Export for Vercel serverless
+module.exports = app;
+
+// Start server only when run directly (not on Vercel)
+if (require.main === module) {
+  app.listen(PORT, () => {
+    console.log(`Server running on http://localhost:${PORT}`);
+  });
+}
