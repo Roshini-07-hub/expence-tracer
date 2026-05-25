@@ -1,20 +1,27 @@
 const mongoose = require('mongoose');
 
+// Cache connection across serverless invocations
+let cachedConnection = null;
+
 async function connectDB() {
-  const RETRY_INTERVAL = 5000; // retry every 5 seconds
+  // If already connected, reuse the connection
+  if (cachedConnection && mongoose.connection.readyState === 1) {
+    return cachedConnection;
+  }
 
-  const tryConnect = async () => {
-    try {
-      await mongoose.connect(process.env.MONGODB_URI);
-      console.log('✅ Connected to MongoDB Atlas');
-    } catch (err) {
-      console.error('❌ MongoDB connection error:', err.message);
-      console.log(`⏳ Retrying in ${RETRY_INTERVAL / 1000}s...`);
-      setTimeout(tryConnect, RETRY_INTERVAL);
-    }
-  };
+  try {
+    const conn = await mongoose.connect(process.env.MONGODB_URI, {
+      serverSelectionTimeoutMS: 10000,
+      socketTimeoutMS: 45000,
+    });
 
-  await tryConnect();
+    cachedConnection = conn;
+    console.log('✅ Connected to MongoDB Atlas');
+    return conn;
+  } catch (err) {
+    console.error('❌ MongoDB connection error:', err.message);
+    throw err;
+  }
 }
 
 module.exports = connectDB;

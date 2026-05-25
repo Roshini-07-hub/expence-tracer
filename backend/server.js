@@ -10,9 +10,6 @@ const connectDB = require('./db/database');
 const app = express();
 const PORT = process.env.PORT || 5000;
 
-// Connect to MongoDB Atlas
-connectDB();
-
 // Middleware
 app.use(cors());
 app.use(express.json());
@@ -23,9 +20,20 @@ app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 // Ensure uploads directory exists (local dev only)
 const uploadsDir = path.join(__dirname, 'uploads');
-if (process.env.NODE_ENV !== 'production' && !fs.existsSync(uploadsDir)) {
+if (!process.env.VERCEL && !fs.existsSync(uploadsDir)) {
   fs.mkdirSync(uploadsDir, { recursive: true });
 }
+
+// Connect to DB before every request (cached for serverless)
+app.use(async (req, res, next) => {
+  try {
+    await connectDB();
+    next();
+  } catch (err) {
+    console.error('DB connection failed:', err.message);
+    res.status(500).json({ success: false, message: 'Database connection failed' });
+  }
+});
 
 // Routes
 const expenseRoutes = require('./routes/expenses');
@@ -41,7 +49,9 @@ module.exports = app;
 
 // Start server only when run directly (not on Vercel)
 if (require.main === module) {
-  app.listen(PORT, () => {
-    console.log(`Server running on http://localhost:${PORT}`);
+  connectDB().then(() => {
+    app.listen(PORT, () => {
+      console.log(`Server running on http://localhost:${PORT}`);
+    });
   });
 }
