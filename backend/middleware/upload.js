@@ -2,9 +2,13 @@ const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
 
-// Ensure uploads directory exists
-const uploadsDir = path.join(__dirname, '..', 'uploads');
-if (!fs.existsSync(uploadsDir)) {
+// Use /tmp on Vercel (serverless), local uploads dir otherwise
+const uploadsDir = process.env.VERCEL
+  ? '/tmp'
+  : path.join(__dirname, '..', 'uploads');
+
+// Ensure uploads directory exists in local dev
+if (!process.env.VERCEL && !fs.existsSync(uploadsDir)) {
   fs.mkdirSync(uploadsDir, { recursive: true });
 }
 
